@@ -13,6 +13,7 @@
 		7C047A852835A693003F447A /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 7C047A832835A693003F447A /* Main.storyboard */; };
 		7C047A872835A696003F447A /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 7C047A862835A696003F447A /* Assets.xcassets */; };
 		7C047A8A2835A696003F447A /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 7C047A882835A696003F447A /* LaunchScreen.storyboard */; };
+		7CF8629528616AE6005126A3 /* pixelBufferExt.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CF8629428616AE6005126A3 /* pixelBufferExt.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -25,6 +26,7 @@
 		7C047A892835A696003F447A /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		7C047A8B2835A696003F447A /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		7C2D35E02835DE8C007822C3 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
+		7CF8629428616AE6005126A3 /* pixelBufferExt.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = pixelBufferExt.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -65,6 +67,7 @@
 				7C047A862835A696003F447A /* Assets.xcassets */,
 				7C047A882835A696003F447A /* LaunchScreen.storyboard */,
 				7C047A8B2835A696003F447A /* Info.plist */,
+				7CF8629428616AE6005126A3 /* pixelBufferExt.swift */,
 			);
 			path = "JPEG Stream";
 			sourceTree = "<group>";
@@ -140,6 +143,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				7CF8629528616AE6005126A3 /* pixelBufferExt.swift in Sources */,
 				7C047A822835A693003F447A /* ViewController.swift in Sources */,
 				7C047A7E2835A693003F447A /* AppDelegate.swift in Sources */,
 				7C047A802835A693003F447A /* SceneDelegate.swift in Sources */,

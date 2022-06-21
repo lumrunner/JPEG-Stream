@@ -42,48 +42,99 @@ class PreviewView: UIView {
 class ViewController: UIViewController, AVCaptureDepthDataOutputDelegate {
     
     let previewView = PreviewView()
-    let previewLayer = AVCaptureVideoPreviewLayer()
+	let recordButton = UIButton()
+    //let previewLayer = AVCaptureVideoPreviewLayer()
     
     let session = AVCaptureSession()
     let output = AVCaptureDepthDataOutput()
 	let sampleBufferQueue = DispatchQueue(label: "Sample Buffer queue")
+	let frameQueue = DispatchQueue(label: "Frame saving queue")
     
     var isRecording = false
     var frames:[myData] = []
 	var writePath = ""
 	var num = 0
-	
+	var isRecrding = true
+	let offset = 20
+	let size = 50
   
     override func viewDidLoad() {
         super.viewDidLoad()
-        // Do any additional setup after loading the view.
-        
+
+		setupButton()
         setupVideo()
+
+		view.addSubview(previewView)
+		view.addSubview(recordButton)
+		
         session.startRunning()
-		saveFrames()
     }
 
+	func setupButton() {
+		// adds listener for button clicks
+		recordButton.addTarget(self, action: #selector(toggleRecord), for: .touchUpInside)
+		
+		// general ui setup
+		recordButton.frame = CGRect(x: Int(view.frame.width) / 2 - size / 2, y: Int(view.frame.height) - size - offset, width: size, height: size)
+		recordButton.backgroundColor = .red
+		recordButton.layer.cornerRadius = CGFloat(size / 2)
+		recordButton.setTitle("", for: .normal)
+		recordButton.setTitle("", for: .highlighted)
+		recordButton.setTitle("", for: .selected)
+		recordButton.isHidden = false
+	}
+	
+	@objc func toggleRecord(_ sender: Any) {
+		if isRecording {
+			isRecording = false
+			recordButton.layer.cornerRadius = CGFloat(size / 2)
+		}
+		else {
+			isRecording = true
+			recordButton.layer.cornerRadius = 0
+			frameQueue.async {
+				self.saveFrames()
+			}
+		}
+	}
+	
     func setupVideo() {
+		
         session.beginConfiguration()
-        view.addSubview(previewView)
         previewView.session = session
         previewView.frame = view.frame
-        //previewView.layer.addSublayer(previewLayer)
-        //previewLayer.session = session
-		session.sessionPreset = .hd4K3840x2160
-		guard let device = AVCaptureDevice.default(.builtInLiDARDepthCamera, for: .depthData, position: .unspecified) else {
+		session.sessionPreset = .inputPriority
+		
+		guard let device = AVCaptureDevice.default(.builtInLiDARDepthCamera, for: .video, position: .back) else {
             print("failed to get device")
             return
         }
-		let availableFormats = device.activeFormat.supportedDepthDataFormats
-		let depthFormat = availableFormats.filter { format in
-			let pixelFotmatType = CMFormatDescriptionGetMediaSubType(format.formatDescription)
-			
-			return pixelFotmatType == kCVPixelFormatType_DepthFloat32
-		}.first
+		
+		// Find a match that outputs video data in the format the app's custom Metal views require.
+		guard let format = (device.formats.last { format in
+			format.formatDescription.dimensions.width == 1920 &&
+			format.formatDescription.mediaSubType.rawValue == kCVPixelFormatType_420YpCbCr8BiPlanarFullRange &&
+			!format.isVideoBinned &&
+			!format.supportedDepthDataFormats.isEmpty
+		}) else {
+			return
+		}
+		
+		// Find a match that outputs depth data in the format the app's custom Metal views require.
+		guard let depthFormat = (format.supportedDepthDataFormats.last { depthFormat in
+			depthFormat.formatDescription.mediaSubType.rawValue == kCVPixelFormatType_DepthFloat32
+		}) else {
+			return
+		}
+
 		try? device.lockForConfiguration()
+		device.activeFormat = format
 		device.activeDepthDataFormat = depthFormat
 		device.unlockForConfiguration()
+		
+		print("Selected video format: \(device.activeFormat)")
+		print("Selected depth format: \(String(describing: device.activeDepthDataFormat))")
+		
         do {
 			let dInput = try AVCaptureDeviceInput(device: device)
 			session.addInput(dInput)
@@ -119,7 +170,7 @@ class ViewController: UIViewController, AVCaptureDepthDataOutputDelegate {
 	}
 	
 	func saveFrames() {
-		while true {
+		while isRecording || frames.count > 0 {
 			if frames.count < 1 {
 				usleep(1000)
 				continue
@@ -128,19 +179,7 @@ class ViewController: UIViewController, AVCaptureDepthDataOutputDelegate {
 			let frame = frames.remove(at: 0)
 			let image = CIImage(cvPixelBuffer: frame.image)
 
-			let file = URL(fileURLWithPath: writePath + String(frame.num) + ".png")
-			/*
-			do {
-				try UIImage(ciImage: image).pngData()?.write(to: file)
-
-			}
-			catch {
-				print(error)
-				print(file.deletingLastPathComponent())
-				try? FileManager.default.createDirectory(at: file.deletingLastPathComponent(), withIntermediateDirectories: true)
-				frames.append(myData(num: frame.num, image: frame.image))
-			}
-			 */
+			let file = URL(fileURLWithPath: writePath + String(frame.num) + ".tiff")
 			
 			guard let colorSpace = image.colorSpace else {
 				print("could not get image color space")
@@ -166,6 +205,7 @@ class ViewController: UIViewController, AVCaptureDepthDataOutputDelegate {
 			return
 		}
 		/*
+		// this might reduce errors in future
 		let buf = depthData.depthDataMap
 		var bufCpy:CVPixelBuffer?
 		CVPixelBufferCreate(nil, CVPixelBufferGetWidth(buf), CVPixelBufferGetHeight(buf), CVPixelBufferGetPixelFormatType(buf), CVBufferCopyAttachments(buf, .shouldPropagate), &bufCpy)
@@ -175,24 +215,19 @@ class ViewController: UIViewController, AVCaptureDepthDataOutputDelegate {
 			return
 		}
 		*/
-		frames.append(myData(num: num, image: depthData.depthDataMap))
+		
+		if isRecording {
+			frames.append(myData(num: num, image: depthData.depthDataMap))
+			num += 1
+		}
+		
 		//print(frames.count)
-		num += 1
 	}
 	
 	func depthDataOutput(_ output: AVCaptureDepthDataOutput, didDrop depthData: AVDepthData, timestamp: CMTime, connection: AVCaptureConnection, reason: AVCaptureOutput.DataDroppedReason) {
-		print("dropped frame", AVCaptureOutput.DataDroppedReason(rawValue: reason.rawValue).unsafelyUnwrapped)
+		if isRecording {
+			print("dropped frame", AVCaptureOutput.DataDroppedReason(rawValue: reason.rawValue).unsafelyUnwrapped)
+		}
 	}
 	
 }
-
-
-/*
-extension UIViewController: AVCaptureVideoDataOutput {
-    func captureOutput(_ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
-        if !sampleBuffer.isValid {
-            print("frame invalid")
-        }
-    }
-}
-*/
